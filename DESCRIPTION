@@ -1,0 +1,19 @@
+
+Package: RFAssetPricing
+Type: Package
+Version: 0.1.0
+Title: Mixed Effects Random Forest Models for Asset Pricing
+Description: Implements various longitudinal random forest models for asset pricing
+    applications, including Mixed Effects Random Forest (MERF), Mixed Effects
+    Random Tree (MERT), and Random Effects EM Tree (REEMtree) and the standard RF (Random Forest). The package
+    provides both standard and stochastic variants of these models to capture
+    temporal dependencies in financial data. Methods are based on Capitaine et al. (2020)
+    doi:10.1177/0962280220946080.
+Author:Vic Chien
+Maintainer:Vic Chien <hc2235@cornell.edu>
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.2
+Depends: R (>= 4.3.0), ranger, rpart, stats
+Imports: ranger,rpart,stats

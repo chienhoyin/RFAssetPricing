@@ -1,0 +1,194 @@
+---
+title: "Using RFAssetPricing: Mixed-Effects Random Forests for Asset Pricing"
+author: "Ho Yin (Vic) Chien"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using RFAssetPricing: Mixed-Effects Random Forests for Asset Pricing}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+
+```
+## Introduction
+
+The RFAssetPricing package implements various random forest-based methods for longitudinal data analysis in asset pricing. It provides four main model types:
+
+1. MERF (Mixed Effects Random Forest)
+2. SMERF (Stochastic Mixed Effects Random Forest)
+3. MERT (Mixed Effects Random Tree)
+4. SMERT (Stochastic Mixed Effects Random Tree)
+
+These models combine the flexibility of random forests with the ability to handle longitudinal data structure through mixed effects and stochastic processes.
+
+## Model Structure
+
+The general model structure is:
+
+
+$Y_{i,t} = f(X_{i,t}) + Z_i + \omega(\tau_{i,t}) + \epsilon_{i,t}$
+ 
+where:
+
+ - $Y_{i,t}$ is the output at time $t$ for firm $i$
+
+ - $X_{i,t}$ is a vector of of predictors
+
+ - $Z_i$ represents scalar random effect for firm $i$
+ 
+ - $\tau_{i,t}$ is the measurement time for observation $i,t$
+
+ - $\omega(\tau_{i,t})$ is a stochastic process (for S-variants)
+
+ - $\epsilon_{i,t}$ is the residual error
+
+
+We are going to learn $f$ using CART/Random forests, and form predictions of $\omega(\tau_{i,t})$ and $Z_i$.
+
+
+## Basic Usage
+First, let's load the package:
+```{r}
+library(RFAssetPricing)
+```
+
+
+## Simulated Example
+We'll start with a simulated dataset to demonstrate the package functionality:
+
+```{r,echo = TRUE}
+library(LongituRF)
+
+set.seed(123)
+# Generate sample data
+sim_data <- DataLongGenerator(n = 50, p = 6, G = 6)
+
+# Examine data structure
+str(sim_data)
+```
+
+The generated data includes:
+
+ - X: Fixed effects predictors
+ 
+ - Y: Response variable
+ 
+ - Z: Random effects design matrix
+ 
+ - id: Firm identifiers
+ 
+ - time: Time points
+
+## Fitting Models
+
+Let's fit both standard and stochastic variants:
+```{r,echo = TRUE}
+# Fit MERF model
+merf_model <- train_APRF(
+    model = "merf",
+    train_X = sim_data$X,
+    train_Y = sim_data$Y,
+    train_time = sim_data$time,
+    train_id = sim_data$id,
+    n_iter = 50  # Reduced for vignette compilation
+)
+
+# Fit SMERF model with Brownian Motion
+smerf_model <- train_APRF(
+    model = "smerf",
+    train_X = sim_data$X,
+    train_Y = sim_data$Y,
+    train_time = sim_data$time,
+    train_id = sim_data$id,
+    sto = "BM",
+    n_iter = 50
+)
+```
+## Model Comparison
+
+Let's compare the predictions from both models:
+
+```{r,echo = TRUE}
+# Get predictions
+merf_pred <- predict(merf_model, 
+                    X = sim_data$X,
+                    Z = sim_data$Z,
+                    id = sim_data$id,
+                    time = sim_data$time)
+
+smerf_pred <- predict(smerf_model, 
+                     X = sim_data$X,
+                     Z = sim_data$Z,
+                     id = sim_data$id,
+                     time = sim_data$time)
+
+# Calculate RMSE
+merf_rmse <- sqrt(mean((merf_pred - sim_data$Y)^2))
+smerf_rmse <- sqrt(mean((smerf_pred - sim_data$Y)^2))
+
+# Print results
+cat("RMSE Comparison:\n")
+cat("MERF:", merf_rmse, "\n")
+cat("SMERF:", smerf_rmse, "\n")
+
+```
+
+## Visualization
+
+Let's plot the SMERF model predictions for the 6 individuals versus the ground truth
+
+```{r,echo = TRUE}
+# Visualize predictions for a few firms
+library(ggplot2)
+
+# Create plotting data
+plot_data <- data.frame(
+    Time = rep(sim_data$time, 3),
+    Value = c(sim_data$Y, merf_pred, smerf_pred),
+    Type = factor(rep(c("Actual", "MERF", "SMERF"), 
+                     each = length(sim_data$Y))),
+    Firm = factor(rep(sim_data$id, 3))
+)
+
+# Plot first 6 firms
+ggplot(subset(plot_data, Firm %in% levels(Firm)[1:6]), 
+       aes(x = Time, y = Value, color = Type)) +
+    geom_line() +
+    facet_wrap(~Firm) +
+    theme_minimal() +
+    labs(title = "Model Comparisons",
+         y = "Response",
+         color = "Type")
+```
+
+## Convergence Diagnostics
+We can examine the convergence of the estimation procedure:
+
+```{r,  fig.show='hold'}
+# Plot log-likelihood evolution
+plot(smerf_model$Vraisemblance, type = "l",
+     xlab = "Iteration", ylab = "Log-likelihood",
+     main = "Convergence Plot")
+```
+
+
+
+## References
+1. Breiman, L. (2001). Random forests. Machine learning, 45:5–32.
+
+2. Capitaine, L., Genuer, R., and Thi´ebaut, R. (2021). Random forests for high-dimensional longitudinal data. Statistical methods in medical research, 30(1):166–184.
+
+3. Hajjem, A., Bellavance, F., and Larocque, D. (2011). Mixed effects regression trees for clustered data. Statistics & probability letters, 81(4):451–459.
+
+4. Hajjem, A., Bellavance, F., and Larocque, D. (2014). Mixed-effects random forest for clustered data. Journal of Statistical Computation and Simulation, 84(6):1313–1328.
+
+5. Sela, R. J. and Simonoff, J. S. (2012). Re-em trees: a data mining approach for longitudinal and clustered data. Machine learning, 86:169–207.
+
